@@ -1,7 +1,4 @@
-import 'package:emergencyapp/screens/dashboard.dart';
 import 'package:emergencyapp/screens/map.dart';
-import 'package:emergencyapp/screens/map2.dart';
-import 'package:emergencyapp/screens/register.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -27,7 +24,7 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: Map2Screen(),
+      home: MapScreen(),
     );
   }
 }

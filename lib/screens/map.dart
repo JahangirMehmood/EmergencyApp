@@ -1,100 +1,206 @@
 import 'dart:async';
-import 'package:geolocator/geolocator.dart';
+import 'dart:ui' as ui;
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
+import 'package:image/image.dart' as image;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
 
   @override
-  State<MapScreen> createState() => MapScreenState();
+  State<MapScreen> createState() => _MapScreenState();
 }
 
-class MapScreenState extends State<MapScreen> {
-  final Completer<GoogleMapController> _controller =
-      Completer<GoogleMapController>();
+class _MapScreenState extends State<MapScreen> {
+  final Completer<GoogleMapController> _controller = Completer();
+  static const CameraPosition _cameraPosition =
+      CameraPosition(target: LatLng(24.913838, 67.059419));
 
-  //geoLocator Start
-  getCurrentPosidion() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
-      print('Permission Not Given');
-      LocationPermission asked = await Geolocator.requestPermission();
-    } else {
-      Position currentPermission = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best);
-      print('LATITUTE' + currentPermission.latitude.toString());
-      print('LONGTITUTE' + currentPermission.longitude.toString());
-      return [
-        currentPermission.latitude.toString(),
-        currentPermission.longitude.toString()
-      ];
-    }
+  String imagePath = '';
+
+  final List<Marker> _marker = <Marker>[
+    // Marker(
+    //     markerId: MarkerId('1'),
+    //     position: LatLng(24.913838, 67.059419),
+    //     infoWindow: InfoWindow(title: 'The Tittle of The Marker'))
+  ];
+  Future<Position> gerUserCurrentLocation() async {
+    await Geolocator.requestPermission()
+        .then((value) => null)
+        .onError((error, stackTrace) {
+      print('error' + error.toString());
+    });
+    return await Geolocator.getCurrentPosition();
   }
 
-  //geoLocator End
-  // var lat = 24.913838;
-  // var long z
-  @override
-  // void initState() {
-  //   // TODO: implement initState
-  //   super.initState();
-  //   var lat = 24.913838;
-  //   var long = 24.913838;
-  // }
+  Future<ui.Image> getUiImage(
+      String imageAssetPath, int height, int width) async {
+    final ByteData assetImageByteData = await rootBundle.load(imageAssetPath);
+    image.Image? baseSizeImage =
+        image.decodeImage(assetImageByteData.buffer.asUint8List());
+    image.Image resizeImage =
+        image.copyResize(baseSizeImage!, height: height, width: width);
+    ui.Codec codec =
+        await ui.instantiateImageCodec(image.encodePng(resizeImage));
+    ui.FrameInfo frameInfo = await codec.getNextFrame();
+    return frameInfo.image;
+  }
 
-  static CameraPosition _kGooglePlex = CameraPosition(
-    // target: LatLng(37.42796133580664, -122.085749655962),
-    target: LatLng(24.913838, 67.059419),
-    zoom: 14.4746,
-  );
+  Future<BitmapDescriptor> getMarkerIcon(String imagePath, Size size) async {
+    final ui.PictureRecorder pictureRecorder = ui.PictureRecorder();
+    final Canvas canvas = Canvas(pictureRecorder);
 
-  static const CameraPosition _kLake = CameraPosition(
-      bearing: 192.8334901395799,
-      // target: LatLng(37.43296265331129, -122.08832357078792),
-      target: LatLng(24.913838, 67.059419),
-      tilt: 59.440717697143555,
-      zoom: 19.151926040649414);
+    final Radius radius = Radius.circular(size.width / 2);
+
+    final Paint tagPaint = Paint()..color = Colors.blue;
+    const double tagWidth = 40.0;
+
+    final Paint shadowPaint = Paint()..color = Colors.blue.withAlpha(100);
+    const double shadowWidth = 15.0;
+
+    final Paint borderPaint = Paint()..color = Colors.white;
+    const double borderWidth = 3.0;
+
+    const double imageOffset = shadowWidth + borderWidth;
+
+    // Add shadow circle
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(
+            Rect.fromLTWH(0.0, 0.0, size.width, size.height),
+            topLeft: radius,
+            topRight: radius,
+            bottomLeft: radius,
+            bottomRight: radius),
+        shadowPaint);
+
+    // Add border circle
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(
+            Rect.fromLTWH(
+                shadowWidth,
+                shadowWidth,
+                size.width - (shadowWidth * 2),
+                size.height - (shadowWidth * 2)),
+            topLeft: radius,
+            topRight: radius,
+            bottomLeft: radius,
+            bottomRight: radius),
+        borderPaint);
+
+    // Add tag circle
+    canvas.drawRRect(
+        RRect.fromRectAndCorners(
+            Rect.fromLTWH(size.width - tagWidth, 0.0, tagWidth, tagWidth),
+            topLeft: radius,
+            topRight: radius,
+            bottomLeft: radius,
+            bottomRight: radius),
+        tagPaint);
+
+    // Add tag text
+    TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
+    textPainter.text = const TextSpan(
+        text: '1', style: TextStyle(fontSize: 20.0, color: Colors.white));
+
+    textPainter.layout();
+    textPainter.paint(
+        canvas,
+        Offset(size.width - tagWidth / 2 - textPainter.width / 2,
+            tagWidth / 2 - textPainter.height / 2));
+
+    // Oval for the image
+    Rect oval = Rect.fromLTWH(imageOffset, imageOffset,
+        size.width - (imageOffset * 2), size.height - (imageOffset * 2));
+
+    // Add path for oval image
+    canvas.clipPath(Path()..addOval(oval));
+
+    // Add image
+    // ui.Image image = await getImageFromPath(imagePath); // Alternatively use your own method to get the image
+    ui.Image image = await getUiImage(imagePath, 150,
+        150); // Alternatively use your own method to get the image
+    paintImage(canvas: canvas, image: image, rect: oval, fit: BoxFit.fitWidth);
+
+    // Convert canvas to image
+    final ui.Image markerAsImage = await pictureRecorder
+        .endRecording()
+        .toImage(size.width.toInt(), size.height.toInt());
+
+    // Convert image to bytes
+    final ByteData? byteData =
+        await markerAsImage.toByteData(format: ui.ImageByteFormat.png);
+    final Uint8List? uint8List = byteData?.buffer.asUint8List();
+
+    return BitmapDescriptor.fromBytes(uint8List!);
+  }
+
+  Future<void> setMarker({required final String imagePath}) async {
+    final Position value = await gerUserCurrentLocation();
+    _marker.clear();
+    debugPrint("${value.latitude}${value.longitude}");
+    _marker.add(
+      Marker(
+          markerId: const MarkerId('1'),
+          icon: await getMarkerIcon(imagePath, const Size(150.0, 150.0)),
+          position: LatLng(value.latitude, value.longitude),
+          infoWindow: const InfoWindow(title: 'Please Help Me')),
+    );
+    CameraPosition cameraPosition = CameraPosition(
+        zoom: 17, target: LatLng(value.latitude, value.longitude));
+    final GoogleMapController controller = await _controller.future;
+    controller.animateCamera(CameraUpdate.newCameraPosition(cameraPosition));
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        centerTitle: true,
-        title: Text('AMBULANCE'),
+      body: GoogleMap(
+        initialCameraPosition: _cameraPosition,
+        markers: Set<Marker>.of(_marker),
+        onMapCreated: (GoogleMapController controller) {
+          _controller.complete(controller);
+        },
       ),
-      body: Column(
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: SpeedDial(
+        icon: Icons.add_chart,
+        activeIcon: Icons.emergency_share_outlined,
+        buttonSize: const Size(70, 70),
+        visible: true,
+        closeManually: false,
+        renderOverlay: true,
+        curve: Curves.easeInBack,
+        overlayColor: Colors.black,
+        direction: SpeedDialDirection.up,
         children: [
-          ElevatedButton(
-              onPressed: () {
-                getCurrentPosidion().then((value) {
-                  print(value);
-                });
-              },
-              child: Text('Geo Locator')),
-          Expanded(
-            child: GoogleMap(
-              mapType: MapType.normal,
-              initialCameraPosition: _kGooglePlex,
-              onMapCreated: (GoogleMapController controller) {
-                _controller.complete(controller);
-              },
-            ),
+          SpeedDialChild(
+            label: 'Ambulance',
+            onTap: () async {
+              await setMarker(imagePath: 'assets/pic/ambulance.png');
+            },
+            child: Image.asset('assets/pic/ambulance.png'),
+          ),
+          SpeedDialChild(
+            label: 'Fire',
+            onTap: () async {
+              await setMarker(imagePath: 'assets/pic/fire.png');
+            },
+            child: Image.asset('assets/pic/fire.png'),
+          ),
+          SpeedDialChild(
+            label: 'Police',
+            onTap: () async {
+              await setMarker(imagePath: 'assets/pic/police.png');
+            },
+            child: Image.asset('assets/pic/police.png'),
           ),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _goToTheLake,
-        label: const Text('To the lake!'),
-        icon: const Icon(Icons.directions_boat),
-      ),
     );
-  }
-
-  Future<void> _goToTheLake() async {
-    final GoogleMapController controller = await _controller.future;
-    controller.animateCamera(CameraUpdate.newCameraPosition(_kLake));
   }
 }

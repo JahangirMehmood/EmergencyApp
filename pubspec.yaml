@@ -41,6 +41,8 @@ dependencies:
   google_maps_flutter: ^2.2.5
   geolocator: ^9.0.0
   location: ^4.4.0
+  image: ^4.0.15
+  flutter_speed_dial: ^6.2.0
 
 dev_dependencies:
   flutter_test:
